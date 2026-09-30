@@ -69,7 +69,7 @@ dependencies = [
 [[package]]
 name = "networkframework"
 version = "0.14.0"
-source = "git+https://github.com/pplanel/networkframework-rs?branch=airshell#831cfb8bd729804f8f387761b4447540d11cbf85"
+source = "git+https://github.com/pplanel/networkframework-rs?branch=airshell#63d72d37eda1ad0d468265f34523cabf3a3a1af5"
 dependencies = [
  "apple-cf",
  "doom-fish-utils",
