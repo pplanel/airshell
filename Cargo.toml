@@ -1,0 +1,15 @@
+[package]
+name = "airshell"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Fork of doom-fish/networkframework-rs (listener advertise, connect_endpoint, graceful
+# cancel) until those changes are released upstream.
+networkframework = { git = "https://github.com/pplanel/networkframework-rs", branch = "airshell" }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
