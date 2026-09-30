@@ -19,7 +19,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "Network.framework: run on caladan/imperium via scripts/remote-test.sh"]
+    #[ignore = "Network.framework: run on a test Mac via scripts/remote-test.sh <host>"]
     fn peer_to_peer_tcp_allows_awdl() {
         assert!(peer_to_peer_tcp().unwrap().include_peer_to_peer());
     }

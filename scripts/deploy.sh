@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Build release binaries here (Arrakis) and install them in ~/.local/bin on the test Macs.
-# Usage: scripts/deploy.sh [host...]   (default: caladan imperium)
+# Build release binaries on this Mac and install them in ~/.local/bin on each given host.
+# Usage: scripts/deploy.sh <host> [host...]
 set -euo pipefail
 cd "$(dirname "$0")/.."
-[ $# -gt 0 ] || set -- caladan imperium
+[ $# -gt 0 ] || { echo "usage: scripts/deploy.sh <host> [host...]" >&2; exit 2; }
 
 cargo build --release
 for host in "$@"; do

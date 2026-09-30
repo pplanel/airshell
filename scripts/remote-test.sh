@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Build the tests here (Arrakis) and run them on a test Mac. Nothing runs locally.
-# Usage: scripts/remote-test.sh <caladan|imperium>
+# Build the tests on this Mac and run them on <host> over ssh. Nothing runs locally.
+# Usage: scripts/remote-test.sh <host>
 set -euo pipefail
-host=${1:?usage: scripts/remote-test.sh <caladan|imperium>}
+host=${1:?usage: scripts/remote-test.sh <host>}
 cd "$(dirname "$0")/.."
 
 cargo build --bins

@@ -1,7 +1,7 @@
 //! Shared helpers for the networked integration tests.
 //!
 //! These tests open sockets and advertise over Bonjour, so they are
-//! `#[ignore]`d: build them on Arrakis, run them on caladan / imperium via
+//! `#[ignore]`d: build them locally, run them on a test Mac via
 //! `scripts/remote-test.sh`.
 
 #![allow(dead_code)]

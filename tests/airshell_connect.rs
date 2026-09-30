@@ -24,7 +24,7 @@ fn wait_with_timeout(
 }
 
 #[test]
-#[ignore = "network: run on caladan/imperium via scripts/remote-test.sh"]
+#[ignore = "network: run on a test Mac via scripts/remote-test.sh <host>"]
 fn round_trips_through_bonjour_and_exits_zero_on_stdin_eof() {
     let name = format!("airshell test's {}", std::process::id());
     relay_listener(echo_server(), Some(&name));
@@ -50,7 +50,7 @@ fn round_trips_through_bonjour_and_exits_zero_on_stdin_eof() {
 }
 
 #[test]
-#[ignore = "runs an airshell binary: run on caladan/imperium via scripts/remote-test.sh"]
+#[ignore = "runs an airshell binary: run on a test Mac via scripts/remote-test.sh <host>"]
 fn missing_argument_prints_usage_and_exits_two() {
     let output = Command::new(bin("airshell-connect")).output().unwrap();
     assert_eq!(output.status.code(), Some(2));
@@ -61,7 +61,7 @@ fn missing_argument_prints_usage_and_exits_two() {
 }
 
 #[test]
-#[ignore = "network: run on caladan/imperium via scripts/remote-test.sh"]
+#[ignore = "network: run on a test Mac via scripts/remote-test.sh <host>"]
 fn server_banner_arrives_before_client_sends_anything_twenty_times() {
     const BANNER: &[u8] = b"SSH-2.0-airshell-test\r\n";
     let name = format!("airshell-banner-{}", std::process::id());
@@ -88,7 +88,7 @@ fn server_banner_arrives_before_client_sends_anything_twenty_times() {
 }
 
 #[test]
-#[ignore = "network: run on caladan/imperium via scripts/remote-test.sh"]
+#[ignore = "network: run on a test Mac via scripts/remote-test.sh <host>"]
 fn unreachable_sshd_makes_airshell_connect_exit_instead_of_hanging() {
     let name = format!("airshell-refused-{}", std::process::id());
     relay_listener(closed_port(), Some(&name));

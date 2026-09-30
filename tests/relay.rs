@@ -6,7 +6,7 @@ use std::net::{Shutdown, TcpStream};
 use common::{TIMEOUT, echo_server, relay_listener};
 
 #[test]
-#[ignore = "network: run on caladan/imperium via scripts/remote-test.sh"]
+#[ignore = "network: run on a test Mac via scripts/remote-test.sh <host>"]
 fn relays_one_mebibyte_both_ways_and_tears_down_on_close() {
     let port = relay_listener(echo_server(), None);
 
@@ -34,7 +34,7 @@ fn relays_one_mebibyte_both_ways_and_tears_down_on_close() {
 }
 
 #[test]
-#[ignore = "network: run on caladan/imperium via scripts/remote-test.sh"]
+#[ignore = "network: run on a test Mac via scripts/remote-test.sh <host>"]
 fn immediate_client_eof_closes_without_hanging() {
     let port = relay_listener(echo_server(), None);
     let mut client = TcpStream::connect(("127.0.0.1", port)).unwrap();
