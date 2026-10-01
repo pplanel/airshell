@@ -40,16 +40,24 @@ jobs:
       - run: cargo test --locked
 
   swift:
-    name: Swift package (iOS)
-    runs-on: macos-26
+    name: Swift package (iOS 27 SDK)
+    # Preview image (actions/runner-images#14404); the only hosted one with the iOS 27 SDK.
+    runs-on: xcode-27
     timeout-minutes: 20
     permissions:
       contents: read
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: xcodebuild -version
+      - name: Require the iOS 27 SDK
+        run: |
+          xcodebuild -version
+          sdk=$(xcrun --sdk iphoneos --show-sdk-version)
+          echo "iphoneos SDK $sdk"
+          [[ $sdk == 27.* ]] || { echo "::error::expected the iOS 27 SDK, got $sdk"; exit 1; }
       - working-directory: swift/AirshellWiFiAware
         run: xcodebuild -scheme AirshellWiFiAware -destination 'generic/platform=iOS' -quiet build
 
