@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: Rust
+    # Network.framework, and the networkframework crate's Swift bridge, need macOS.
+    runs-on: macos-26
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install stable --profile minimal -c clippy -c rustfmt && rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      # Type-checks the iOS-only Wi-Fi Aware module; it links only into the iOS app.
+      - run: cargo clippy --locked --all-targets --features wifi-aware -- -D warnings
+      # Tests that open sockets or use Bonjour are #[ignore]d: they run on a test Mac
+      # via scripts/remote-test.sh.
+      - run: cargo test --locked
+
+  swift:
+    name: Swift package (iOS 27 SDK)
+    # Preview image (actions/runner-images#14404); the only hosted one with the iOS 27 SDK.
+    runs-on: xcode-27
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require the iOS 27 SDK
+        run: |
+          xcodebuild -version
+          sdk=$(xcrun --sdk iphoneos --show-sdk-version)
+          echo "iphoneos SDK $sdk"
+          [[ $sdk == 27.* ]] || { echo "::error::expected the iOS 27 SDK, got $sdk"; exit 1; }
+      - working-directory: swift/AirshellWiFiAware
+        run: xcodebuild -scheme AirshellWiFiAware -destination 'generic/platform=iOS' -quiet build
+
+  shellcheck:
+    name: Shell scripts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: shellcheck scripts/*.sh

@@ -1,6 +1,9 @@
 //! airshell: SSH over AWDL via Network.framework (through the `networkframework` crate).
 
 pub mod relay;
+pub mod transport;
+#[cfg(feature = "wifi-aware")]
+pub mod wifi_aware;
 
 use networkframework::{ConnectionParameters, NetworkError};
 
