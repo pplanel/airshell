@@ -1,6 +1,7 @@
 //! airshell: SSH over AWDL via Network.framework (through the `networkframework` crate).
 
 pub mod relay;
+pub mod transport;
 
 use networkframework::{ConnectionParameters, NetworkError};
 

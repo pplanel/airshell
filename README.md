@@ -143,6 +143,7 @@ mv -f /usr/local/bin/airshell-sshd.new /usr/local/bin/airshell-sshd
 | ------------------------- | ------------------------------------------------------------------ |
 | `src/lib.rs`              | Protocol constants and peer-to-peer `Network.framework` parameters |
 | `src/relay.rs`            | Bidirectional full-duplex I/O streaming pipelines                  |
+| `src/transport.rs`        | `Transport` trait: the connection operations the relay depends on  |
 | `src/bin/airshell-sshd.rs`    | P2P Bonjour advertiser & loopback relay daemon                     |
 | `src/bin/airshell-connect.rs` | Peer resolver and SSH `ProxyCommand` transport                     |
 | `tests/`                  | P2P integration and loopback communication test suites             |
