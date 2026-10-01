@@ -1,148 +1,118 @@
-### airshell: Zero-Infrastructure Peer-to-Peer SSH over AWDL
+# airshell
 
-**airshell** explores off-grid, low-latency peer-to-peer networking between Macs by tapping directly into **Apple Wireless Direct Link (AWDL)**—the proprietary Wi-Fi mesh protocol that powers AirDrop, AirPlay, and Sidecar.
+Connections between nearby devices with no network in between: no router, no internet, no cables.
 
-With zero shared infrastructure (no local Wi-Fi router, no internet access, and no cables), two Macs within physical proximity can discover each other, negotiate an ad-hoc connection, and establish secure SSH and SCP sessions.
+Laptops and phones can talk directly over peer-to-peer Wi-Fi links built into their radios, but
+outside a few system features (AirDrop, Sidecar) ordinary tools can't use them. airshell turns
+those links into plain byte streams and relays them to services you already run, so existing
+tools work unchanged. The radio link is a pluggable **transport**; **applications** sit on top.
 
----
+SSH between Macs over AWDL is the first combination, and it works today.
 
-### The Novelty: Harnessing Apple's Mesh Protocol from Rust
+## Status
 
-AWDL allows Apple hardware to communicate directly across dynamic Wi-Fi channels while remaining connected to standard networks. While traditionally reserved for closed Apple ecosystem features, macOS exposes peer-to-peer capabilities through `Network.framework`.
+| Kind | What | Status |
+|------|------|--------|
+| Transport | **AWDL** (Apple Wireless Direct Link) through Network.framework, Mac to Mac | Working |
+| Transport | **Wi-Fi Aware** (the Wi-Fi Alliance standard, also called NAN) on iOS and iPadOS 26+ | In progress ([#1](https://github.com/pplanel/airshell/pull/1)) |
+| Application | **SSH**: `airshell-sshd` and `airshell-connect` | Working |
+| Application | Relaying any local TCP service, not only sshd | Planned |
 
-`airshell` bridges these native low-level Darwin capabilities into Rust:
-
-- **Zero-Conf Mesh Discovery:** Advertises and browses specialized Bonjour records (`_awdlssh._tcp`) over peer-to-peer transport without broadcast pollution on regular networks.
-
-- **Direct P2P Link Negotiation:** Leverages native `NWParameters` with peer-to-peer flags enabled, causing macOS to automatically negotiate ad-hoc Wi-Fi channel sync and link-state changes between machines.
-- **Transparent SSH Integration:** Plugs straight into standard OpenSSH via `ProxyCommand`, enabling standard keys, config profiles, interactive shells, and high-throughput file transfers (`scp`/`rsync`) over the air.
-
----
-
-### Architecture & Components
-
-The project consists of two lightweight binaries:
+## How it works
 
 ```
-[ Mac A (Client) ]                                       [ Mac B (Host) ]
-ssh client                                               sshd (127.0.0.1:22)
-    │ (stdin/stdout)                                              ▲
-    ▼                                                             │ (loopback TCP)
-airshell-connect ──[ AWDL Peer-to-Peer Link (_awdlssh._tcp) ]──▶ airshell-sshd
+ device A                                                       device B
+ application ── airshell client ══ peer-to-peer link ══▶ airshell daemon ── local service
+ (ssh)          (finds B by name)   (AWDL, Wi-Fi Aware)  (advertises)        (sshd)
 ```
 
-- **`airshell-sshd` (The Daemon):** Listens on a dynamic port advertised over AWDL peer-to-peer Bonjour and proxies incoming connections to the local OpenSSH daemon on `127.0.0.1:22`.
-- **`airshell-connect <PeerName>` (The Proxy):** Acts as an SSH `ProxyCommand`. It discovers the target Mac by its Bonjour computer name, negotiates the direct peer-to-peer channel, and bridges `stdin`/`stdout`.
+- **Discovery:** the daemon advertises a service over the peer-to-peer link. On AWDL that's a
+  Bonjour `_awdlssh._tcp` record under the Mac's computer name; the client looks it up by name.
+- **Link:** Network.framework brings up AWDL only for connections that allow peer-to-peer
+  interfaces (`peer_to_peer_tcp()` in `src/lib.rs`); ordinary sockets never trigger it.
+- **Relay:** the daemon connects each incoming stream to the local service and copies bytes in
+  both directions on two threads. When either side finishes, both connections close with a FIN
+  (`src/relay.rs`).
 
----
+**Security:** airshell doesn't authenticate or encrypt streams itself, so anyone within radio range
+can reach the advertised service. That's fine for SSH, which does both; other services need their
+own authentication, or a transport that pairs devices first, such as Wi-Fi Aware.
 
-### Quick Start
+## Quick start: SSH between two Macs
 
-#### 1. Build
+**1. Build and install** both binaries on both Macs:
 
 ```bash
-cargo build --release
+cargo build --release              # target/release/airshell-sshd, airshell-connect
+scripts/deploy.sh mac-a mac-b      # or: build, then install into ~/.local/bin on each host over SSH
 ```
 
-#### 2. Configure SSH Client (`~/.ssh/config`)
-
-Add a profile for the target machine using its macOS Computer Name (as shown in **System Settings > General > About**):
-
-```ssh-config
-Host mesh-target
-    HostName target.local
-    User your_username
-    ProxyCommand /usr/local/bin/airshell-connect "Target-MacBook"
-```
-
-#### 3. Start the Daemon on the Remote Host
-
-Run the daemon on the host machine:
+**2. On the Mac you connect to,** turn on Remote Login (System Settings > General > Sharing) so
+sshd listens on `127.0.0.1:22`, then start the daemon:
 
 ```bash
-airshell-sshd
+~/.local/bin/airshell-sshd
 ```
-
-You should see:
 
 ```text
 listener: ready
 Broadcasting as: Target-MacBook [_awdlssh._tcplocal.]
 ```
 
-#### 4. Connect Off-Grid
+**3. On the Mac you connect from,** add a host to `~/.ssh/config` using the other Mac's name
+(System Settings > General > About):
 
-Disconnect both Macs from Wi-Fi access points and unplug Ethernet cables (keep Wi-Fi turned **on** in Control Center).
-
-From the client Mac:
-
-```bash
-ssh mesh-target
+```ssh-config
+Host target-mac
+    User your-username
+    ProxyCommand ~/.local/bin/airshell-connect "Target-MacBook"
 ```
 
-To verify data is actually routing over the physical AWDL interface:
+**4. Go off-grid and connect.** Disconnect both Macs from Wi-Fi networks and cables (keep Wi-Fi
+turned on), then:
 
 ```bash
-# Watch interface statistics on the AWDL link
-netstat -I awdl0 -b 1
+ssh target-mac
 ```
 
----
+`scp` and `rsync` work the same way. To see traffic on the AWDL interface: `netstat -I awdl0 -b 1`.
 
-### Under the Hood
+`airshell-connect` retries for up to 30 seconds while the peer is being discovered.
 
-#### Peer-to-Peer Protocol Parameters
+## macOS notes
 
-Standard TCP sockets do not trigger Apple's AWDL radio negotiation. `airshell` interfaces with Apple's `Network.framework` via the `networkframework` crate. By explicitly enabling peer-to-peer routing in the protocol stack:
-
-- The Bonjour registration triggers background AWDL frame scheduling.
-- The connecting client resolves the `_awdlssh._tcp` record directly from peer beacon frames.
-- macOS handles channel synchronization, power management, and link-layer encryption under the hood.
-
-#### Bidirectional Relay Engine
-
-`airshell-sshd` avoids touching the public network stack entirely. It operates as a local boundary:
-
-- Inbound connections are accepted over the virtual P2P socket.
-- The daemon establishes a loopback stream to `127.0.0.1:22`.
-- Full-duplex asynchronous threads pipe data between the local SSH daemon and the remote peer, ensuring minimal latency and native throughput.
-
----
-
-### Operational Notes & Troubleshooting
-
-#### macOS Application Firewall
-
-The first time a new binary starts listening on network sockets, the macOS Application Firewall (`socketfilterfw`) will prompt for confirmation:
-
-- An unanswered dialog holds incoming connections in a `waiting` state, causing connection timeouts.
-- In automated or headless setups, pre-approve the binary (requires `sudo`):
+- **Application Firewall:** the first time `airshell-sshd` listens, macOS asks whether to allow it.
+  Until someone answers, incoming connections hang. On headless Macs, pre-approve it:
   ```bash
-  sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /path/to/airshell-sshd
-  sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /path/to/airshell-sshd
+  sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add ~/.local/bin/airshell-sshd
+  sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp ~/.local/bin/airshell-sshd
   ```
+- **Local Network privacy:** if `airshell-sshd` never prints `listener: ready` when started over
+  SSH, run it once from a local Terminal and accept the prompt.
+- **Replacing binaries:** overwriting a binary in place makes macOS kill the new one on launch
+  (a stale code-signature cache). Copy to a temporary name and rename it into place;
+  `scripts/deploy.sh` does this.
 
-#### Local Network Privacy
-
-On modern macOS releases, access to local discovery protocols requires explicit consent. If the daemon gets stuck at `listener: waiting(...)` when launched remotely over SSH, run `airshell-sshd` once inside a local Terminal session and accept the prompt.
-
-#### Binary Replacement & Code Signature Caches
-
-Replacing an active binary directly can cause macOS to terminate the process with `SIGKILL` due to signature validation cache mismatches. When deploying updates, write to a temporary file and atomically rename it into place:
+## Development
 
 ```bash
-cp target/release/airshell-sshd /usr/local/bin/airshell-sshd.new
-mv -f /usr/local/bin/airshell-sshd.new /usr/local/bin/airshell-sshd
+cargo build
+cargo test                        # tests that need the network are #[ignore]d
+scripts/remote-test.sh <host>     # build here, run every test on a test Mac over SSH
+scripts/deploy.sh <host> [host…]  # release build, installed into ~/.local/bin on each host
 ```
 
----
+Network.framework bindings come from
+[`networkframework`](https://github.com/doom-fish/networkframework-rs), currently through a fork
+(see `Cargo.toml`).
 
-### Repository Structure
+## Repository layout
 
-| Path                      | Purpose                                                            |
-| ------------------------- | ------------------------------------------------------------------ |
-| `src/lib.rs`              | Protocol constants and peer-to-peer `Network.framework` parameters |
-| `src/relay.rs`            | Bidirectional full-duplex I/O streaming pipelines                  |
-| `src/bin/airshell-sshd.rs`    | P2P Bonjour advertiser & loopback relay daemon                     |
-| `src/bin/airshell-connect.rs` | Peer resolver and SSH `ProxyCommand` transport                     |
-| `tests/`                  | P2P integration and loopback communication test suites             |
+| Path | Purpose |
+|------|---------|
+| `src/lib.rs` | Bonjour service type and peer-to-peer connection parameters |
+| `src/relay.rs` | Two-way byte relay with graceful teardown |
+| `src/bin/airshell-sshd.rs` | Daemon: advertises over AWDL, relays to the local sshd |
+| `src/bin/airshell-connect.rs` | SSH `ProxyCommand`: finds a peer by name, bridges stdin/stdout |
+| `tests/` | Relay and `airshell-connect` integration tests |
+| `scripts/` | Deploy to hosts, run tests on a remote Mac |
