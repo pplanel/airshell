@@ -2,6 +2,8 @@
 
 pub mod relay;
 pub mod transport;
+#[cfg(feature = "wifi-aware")]
+pub mod wifi_aware;
 
 use networkframework::{ConnectionParameters, NetworkError};
 

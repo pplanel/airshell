@@ -8,6 +8,11 @@ edition = "2024"
 # cancel) until those changes are released upstream.
 networkframework = { git = "https://github.com/pplanel/networkframework-rs", branch = "airshell" }
 
+[features]
+# Wi-Fi Aware transport for iOS builds; needs the Swift package in swift/AirshellWiFiAware
+# linked into the app.
+wifi-aware = []
+
 [profile.dev]
 panic = "abort"
 
