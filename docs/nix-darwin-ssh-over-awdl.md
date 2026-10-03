@@ -43,11 +43,12 @@ In `flake.nix`, add the input alongside your other `github:pplanel/*` flakes:
 
 ```nix
 # airshell: SSH (and any TCP service) over AWDL between nearby Macs.
-# follows nixpkgs to dedupe the closure — airshell isn't served by a binary
-# cache here, so there's no store-path-matching reason to pin its own nixpkgs
-# (unlike neovix/pam-watchid above).
+# NOTE: intentionally NOT following nixpkgs — airshell is served by its own GHCR
+# cache (ghcr.io/pplanel/airshell/nix-cache), so it must build with its own
+# pinned nixpkgs for the store path to match what CI published; following
+# nixpkgs would force a local rebuild (impure, needs Xcode) instead of
+# substituting. Same pattern as neovix/pam-watchid.
 airshell.url = "github:pplanel/airshell";
-airshell.inputs.nixpkgs.follows = "nixpkgs";
 ```
 
 `inputs` is already threaded into every host via `specialArgs = { inherit inputs self user; }`, so

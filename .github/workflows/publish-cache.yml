@@ -1,0 +1,20 @@
+name: Publish Binary Cache
+
+# Builds this flake's aarch64-darwin outputs (airshell-proxy, airshell-connect) and
+# pushes the signed NARs to ghcr.io/<owner>/<repo>/nix-cache. The build logic lives
+# once in pplanel/nixcache as a reusable workflow; this is just the thin caller.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    uses: pplanel/nixcache/.github/workflows/publish-cache.yml@main
+    secrets: inherit
