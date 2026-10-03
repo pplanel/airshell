@@ -1,5 +1,6 @@
 //! airshell: SSH over AWDL via Network.framework (through the `networkframework` crate).
 
+pub mod config;
 pub mod error;
 pub mod logging;
 pub mod relay;

@@ -7,8 +7,9 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use airshell::logging::{self, Format};
 use airshell::relay::CHUNK;
-use airshell::{SERVICE_TYPE, logging, peer_to_peer_tcp};
+use airshell::{SERVICE_TYPE, peer_to_peer_tcp};
 use clap::Parser;
 use networkframework::{ContentContext, Endpoint, NetworkError, TcpClient};
 use tracing::{error, info, warn};
@@ -39,7 +40,7 @@ struct Cli {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    let _guard = match logging::init(cli.log_file.as_deref()) {
+    let _guard = match logging::init(cli.log_file.as_deref(), Format::Text) {
         Ok(guard) => guard,
         Err(error) => {
             eprintln!("airshell-connect: cannot open log file: {error}");

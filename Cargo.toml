@@ -9,9 +9,11 @@ edition = "2024"
 networkframework = { git = "https://github.com/pplanel/networkframework-rs", branch = "airshell" }
 clap = { version = "4", features = ["derive", "env"] }
 ctrlc = "3"
+serde = { version = "1", features = ["derive"] }
 thiserror = "2"
+toml = "0.8"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-appender = "0.2"
 
 [profile.dev]

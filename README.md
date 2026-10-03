@@ -92,15 +92,48 @@ airshell-connect db-mac | …                         # the client side is servi
 Remember that AWDL has no authentication — expose only services that authenticate
 themselves (like SSH), or pair devices with a transport that does.
 
+## Running several services from one proxy
+
+A single `airshell-proxy` can advertise many services at once. Put them in
+`~/.config/airshell/config.toml` (or point `--config`/`AIRSHELL_CONFIG` at another file) and the
+proxy picks it up automatically — one Bonjour advertisement and relay per `[[service]]`:
+
+```toml
+[[service]]
+name = "ssh"            # Bonjour name; required here
+port = 22               # service_type defaults to _awdlssh._tcp, host to 127.0.0.1
+
+[[service]]
+name = "db-mac"
+service_type = "_awdldb._tcp"
+port = 5432
+```
+
+Each `[[service]]` runs its own listener thread; the proxy stays up as long as at least one is
+alive and shuts down cleanly on Ctrl-C. A `(name, service_type)` pair must be unique. The
+single-service flags (`--port`/`--host`/`--name`) are used only when no config file is present.
+
 ## Configuration and logging
 
 Every flag has an `AIRSHELL_*` environment variable (handy for launchd/systemd units):
-`--port`→`AIRSHELL_PORT`, `--host`, `--name`, `--service-type`, `--log-file`; and on the
-client `--timeout`, `--domain`. Run either binary with `--help` for the full list.
+`--config`→`AIRSHELL_CONFIG`, `--port`→`AIRSHELL_PORT`, `--host`, `--name`, `--service-type`,
+`--log-format`, `--log-file`; and on the client `--timeout`, `--domain`. Run either binary with
+`--help` for the full list.
 
 Both log via `tracing`; the level comes from `RUST_LOG` (default `info`). `--log-file PATH`
-appends logs there in addition to stderr. `airshell-connect` never logs to stdout — that stays
-the ssh data channel. `airshell-proxy` shuts down cleanly on Ctrl-C (flushing its log).
+appends logs there in addition to stderr (stderr stays human-readable). With no `--log-file`,
+`airshell-proxy` picks a per-instance path under `~/Library/Logs`
+(`airshell-proxy-<name|port>.log`), or a shared `airshell-proxy.log` when running several
+services. `airshell-connect` never logs to stdout — that stays the ssh data channel.
+`airshell-proxy` shuts down cleanly on Ctrl-C (flushing its log).
+
+The file log format is set by `--log-format` (`auto` by default: text for a single service, JSON
+for several, since a shared log reads best as newline-delimited JSON). Query a JSON log with `jq`:
+
+```bash
+tail -f ~/Library/Logs/airshell-proxy.log | jq 'select(.span.service == "db-mac")'  # one service
+jq -r 'select(.level == "ERROR") | "\(.timestamp) \(.fields.message)"' airshell-proxy.log
+```
 
 ## macOS notes
 
@@ -137,6 +170,7 @@ Network.framework bindings come from
 | Path | Purpose |
 |------|---------|
 | `src/lib.rs` | Bonjour service type and peer-to-peer connection parameters |
+| `src/config.rs` | Multi-service config (`config.toml`) parsing and validation |
 | `src/relay.rs` | Two-way byte relay with graceful teardown and byte counts |
 | `src/error.rs` | Relay error type (`thiserror`) |
 | `src/logging.rs` | Shared `tracing` setup (stderr + optional file) |
