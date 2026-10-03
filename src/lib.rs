@@ -1,10 +1,15 @@
 //! airshell: SSH over AWDL via Network.framework (through the `networkframework` crate).
 
+pub mod error;
+pub mod logging;
 pub mod relay;
+
+pub use error::Error;
 
 use networkframework::{ConnectionParameters, NetworkError};
 
-/// Bonjour service type that airshell-sshd advertises and airshell-connect looks up.
+/// Default Bonjour service type that airshell-proxy advertises and airshell-connect
+/// looks up. Both sides accept `--service-type` to override it.
 pub const SERVICE_TYPE: &str = "_awdlssh._tcp";
 
 /// Plain TCP (no TLS) with peer-to-peer interfaces (AWDL) allowed.

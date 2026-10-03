@@ -1,31 +1,61 @@
-//! ssh ProxyCommand: connects to a peer's airshell-sshd by Bonjour name and bridges stdin/stdout.
+//! ssh ProxyCommand: connects to a peer's airshell-proxy by Bonjour name and bridges stdin/stdout.
 
 use std::io::{ErrorKind, Read, Write};
-use std::process::exit;
+use std::path::PathBuf;
+use std::process::ExitCode;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use airshell::relay::CHUNK;
-use airshell::{SERVICE_TYPE, peer_to_peer_tcp};
+use airshell::{SERVICE_TYPE, logging, peer_to_peer_tcp};
+use clap::Parser;
 use networkframework::{ContentContext, Endpoint, NetworkError, TcpClient};
+use tracing::{error, info, warn};
 
-/// Stop retrying after this long.
-const CONNECT_DEADLINE: Duration = Duration::from_secs(30);
+/// Connect to a peer's airshell-proxy over AWDL and bridge stdin/stdout (an ssh ProxyCommand).
+#[derive(Parser)]
+#[command(version, about)]
+struct Cli {
+    /// Bonjour service name of the peer's airshell-proxy.
+    service_name: String,
 
-fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() != 2 {
-        eprintln!("usage: airshell-connect <ServiceName>");
-        exit(2);
-    }
-    let conn = match connect(&args[1]) {
-        Ok(conn) => Arc::new(conn),
+    /// Give up connecting after this many seconds.
+    #[arg(short, long, env = "AIRSHELL_TIMEOUT", default_value_t = 30)]
+    timeout: u64,
+
+    /// Bonjour service type to resolve.
+    #[arg(long, env = "AIRSHELL_SERVICE_TYPE", default_value = SERVICE_TYPE)]
+    service_type: String,
+
+    /// Bonjour domain to resolve the service in.
+    #[arg(long, env = "AIRSHELL_DOMAIN", default_value = "local.")]
+    domain: String,
+
+    /// Append logs to this file (stdout is the data channel, so logs never go there).
+    #[arg(long, env = "AIRSHELL_LOG_FILE", value_name = "PATH")]
+    log_file: Option<PathBuf>,
+}
+
+fn main() -> ExitCode {
+    let cli = Cli::parse();
+    let _guard = match logging::init(cli.log_file.as_deref()) {
+        Ok(guard) => guard,
         Err(error) => {
-            eprintln!("airshell-connect: {error}");
-            exit(1);
+            eprintln!("airshell-connect: cannot open log file: {error}");
+            return ExitCode::FAILURE;
         }
     };
+
+    let deadline = Duration::from_secs(cli.timeout);
+    let conn = match connect(&cli.service_name, &cli.service_type, &cli.domain, deadline) {
+        Ok(conn) => Arc::new(conn),
+        Err(error) => {
+            error!(service = %cli.service_name, %error, "connect failed");
+            return ExitCode::FAILURE;
+        }
+    };
+    info!(service = %cli.service_name, "connected");
 
     let sender = Arc::clone(&conn);
     thread::spawn(move || forward_stdin(&sender));
@@ -41,20 +71,26 @@ fn main() {
             break;
         }
     }
-    exit(0);
+    info!("disconnected");
+    ExitCode::SUCCESS
 }
 
-/// Connect to `<service_name>._awdlssh._tcp.local.` with peer-to-peer enabled.
+/// Connect to `<service_name>.<service_type>.<domain>` with peer-to-peer enabled.
 /// The crate fails a connect on its first `waiting` error, so report each
-/// failure and retry until the deadline.
-fn connect(service_name: &str) -> Result<TcpClient, NetworkError> {
+/// failure and retry until the deadline elapses.
+fn connect(
+    service_name: &str,
+    service_type: &str,
+    domain: &str,
+    timeout: Duration,
+) -> Result<TcpClient, NetworkError> {
     let parameters = peer_to_peer_tcp()?;
-    let endpoint = Endpoint::bonjour_service(Some(service_name), SERVICE_TYPE, Some("local."))?;
-    let deadline = Instant::now() + CONNECT_DEADLINE;
+    let endpoint = Endpoint::bonjour_service(Some(service_name), service_type, Some(domain))?;
+    let deadline = Instant::now() + timeout;
     loop {
         match TcpClient::connect_endpoint(&endpoint, &parameters) {
             Err(NetworkError::ConnectFailed) if Instant::now() < deadline => {
-                eprintln!("airshell-connect: {}", NetworkError::ConnectFailed);
+                warn!(error = %NetworkError::ConnectFailed, "retrying");
                 thread::sleep(Duration::from_secs(1));
             }
             result => return result,
@@ -81,5 +117,28 @@ fn forward_stdin(conn: &TcpClient) {
     if let Ok(mut fin) = ContentContext::new("stdin-eof") {
         fin.set_is_final(true);
         let _ = conn.send_with_context(&[], &fin);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cli;
+    use clap::{CommandFactory, Parser};
+
+    #[test]
+    fn cli_is_valid() {
+        Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn service_name_is_required() {
+        assert!(Cli::try_parse_from(["airshell-connect"]).is_err());
+    }
+
+    #[test]
+    fn parses_service_name_and_timeout() {
+        let cli = Cli::try_parse_from(["airshell-connect", "Target-Mac", "--timeout", "5"]).unwrap();
+        assert_eq!(cli.service_name, "Target-Mac");
+        assert_eq!(cli.timeout, 5);
     }
 }

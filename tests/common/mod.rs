@@ -59,7 +59,7 @@ pub fn closed_port() -> u16 {
     server.local_addr().unwrap().port()
 }
 
-/// What `airshell-sshd` does, but relaying to `127.0.0.1:target_port` and
+/// What `airshell-proxy` does, but relaying to `127.0.0.1:target_port` and
 /// optionally advertising under `advertise_name`. The listener lives on a
 /// background thread for the rest of the test process. Returns its port once
 /// it is ready.
@@ -94,7 +94,7 @@ pub fn bin(name: &str) -> PathBuf {
         Some(dir) => PathBuf::from(dir).join(name),
         None => match name {
             "airshell-connect" => PathBuf::from(env!("CARGO_BIN_EXE_airshell-connect")),
-            "airshell-sshd" => PathBuf::from(env!("CARGO_BIN_EXE_airshell-sshd")),
+            "airshell-proxy" => PathBuf::from(env!("CARGO_BIN_EXE_airshell-proxy")),
             other => panic!("unknown binary {other}"),
         },
     }

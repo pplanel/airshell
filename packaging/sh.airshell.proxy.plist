@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  LaunchAgent template for airshell-proxy. Edit the USERNAME placeholders, then:
+
+    cp packaging/sh.airshell.proxy.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/sh.airshell.proxy.plist
+
+  To stop it:  launchctl bootout gui/$(id -u)/sh.airshell.proxy
+
+  Relay target and name come from the --port/--host/--name flags (or the
+  AIRSHELL_* environment variables) below. Logs go to the file in --log-file.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>sh.airshell.proxy</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/USERNAME/.local/bin/airshell-proxy</string>
+        <string>--port</string>
+        <string>22</string>
+        <string>--log-file</string>
+        <string>/Users/USERNAME/Library/Logs/airshell-proxy.log</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>RUST_LOG</key>
+        <string>info</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/USERNAME/Library/Logs/airshell-proxy.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/USERNAME/Library/Logs/airshell-proxy.err.log</string>
+</dict>
+</plist>

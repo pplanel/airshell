@@ -10,8 +10,8 @@ for host in "$@"; do
   # Copy to *.new and rename into place: overwriting a binary in place keeps
   # the old code signature cached on that inode, and the kernel SIGKILLs the
   # new binary on launch ("killed", no error message).
-  scp -q target/release/airshell-sshd "$host:.local/bin/airshell-sshd.new"
+  scp -q target/release/airshell-proxy "$host:.local/bin/airshell-proxy.new"
   scp -q target/release/airshell-connect "$host:.local/bin/airshell-connect.new"
-  ssh "$host" 'cd ~/.local/bin && for b in airshell-sshd airshell-connect; do chmod +x "$b.new" && mv -f "$b.new" "$b"; done'
-  echo "installed airshell-sshd, airshell-connect on $host"
+  ssh "$host" 'cd ~/.local/bin && for b in airshell-proxy airshell-connect; do chmod +x "$b.new" && mv -f "$b.new" "$b"; done'
+  echo "installed airshell-proxy, airshell-connect on $host"
 done

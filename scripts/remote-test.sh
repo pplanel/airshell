@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build the tests on this Mac and run them on <host> over ssh. Nothing runs locally.
 # Usage: scripts/remote-test.sh <host>
+# shellcheck disable=SC2029 # $remote and $name are meant to expand on this side.
 set -euo pipefail
 host=${1:?usage: scripts/remote-test.sh <host>}
 cd "$(dirname "$0")/.."
@@ -8,7 +9,7 @@ cd "$(dirname "$0")/.."
 cargo build --bins
 tests=$(cargo test --no-run --message-format=json \
   | jq -r 'select(.reason == "compiler-artifact" and .profile.test == true and .executable != null) | .executable')
-bins=$(ls target/debug/airshell-sshd target/debug/airshell-connect 2>/dev/null || true)
+bins=$(ls target/debug/airshell-proxy target/debug/airshell-connect 2>/dev/null || true)
 
 remote=/tmp/airshell-test
 ssh "$host" "rm -rf $remote && mkdir -p $remote"

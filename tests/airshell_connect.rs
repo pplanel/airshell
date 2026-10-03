@@ -54,10 +54,9 @@ fn round_trips_through_bonjour_and_exits_zero_on_stdin_eof() {
 fn missing_argument_prints_usage_and_exits_two() {
     let output = Command::new(bin("airshell-connect")).output().unwrap();
     assert_eq!(output.status.code(), Some(2));
-    assert_eq!(
-        String::from_utf8_lossy(&output.stderr),
-        "usage: airshell-connect <ServiceName>\n"
-    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Usage:"), "stderr was: {stderr}");
+    assert!(stderr.contains("<SERVICE_NAME>"), "stderr was: {stderr}");
 }
 
 #[test]

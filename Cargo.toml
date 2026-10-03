@@ -7,6 +7,12 @@ edition = "2024"
 # Fork of doom-fish/networkframework-rs (listener advertise, connect_endpoint, graceful
 # cancel) until those changes are released upstream.
 networkframework = { git = "https://github.com/pplanel/networkframework-rs", branch = "airshell" }
+clap = { version = "4", features = ["derive", "env"] }
+ctrlc = "3"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
 
 [profile.dev]
 panic = "abort"
