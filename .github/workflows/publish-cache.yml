@@ -18,3 +18,10 @@ jobs:
   publish:
     uses: pplanel/nixcache/.github/workflows/publish-cache.yml@main
     secrets: inherit
+    with:
+      # airshell's flake build is impure (__noChroot + Xcode's clang/swift/SDK,
+      # see flake.nix): it only works on a Mac with Xcode installed and Nix's
+      # sandbox off — which GitHub-hosted macos runners don't provide. Build on
+      # a self-hosted Apple-Silicon runner set up like the dev Macs, tagged with
+      # the `airshell-builder` label. See docs/self-hosted-cache-runner.md.
+      runs-on: airshell-builder
