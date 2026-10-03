@@ -13,9 +13,11 @@ bins=$(ls target/debug/airshell-proxy target/debug/airshell-connect 2>/dev/null 
 
 remote=/tmp/airshell-test
 ssh "$host" "rm -rf $remote && mkdir -p $remote"
+# -O uses the legacy SCP/rcp transfer, not the SFTP subsystem: some hosts
+# (seen over Tailscale) stall or close the SFTP channel.
 # shellcheck disable=SC2086 # paths contain no spaces
-scp -q $tests $bins "$host:$remote/"
-# scp over SFTP (OpenSSH 9+) does not keep the execute bit.
+scp -O -q $tests $bins "$host:$remote/"
+# scp -O does not keep the execute bit either.
 ssh "$host" "chmod +x $remote/*"
 
 status=0

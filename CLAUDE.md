@@ -27,23 +27,14 @@ scripts/build-mac.sh              # Nix build of both macOS apps for macOS 26+ (
 scripts/build-ios.sh              # static lib for iOS, with the wifi-aware feature (run in nix develop)
 ```
 
-The dev shell (`nix develop`, auto-loaded via direnv) provides the Rust toolchain with the iOS
-target and `jq`.
+**Run cargo inside `nix develop`** (auto-loaded via direnv). The dev shell is NoCC, so the host
+Xcode clang + macOS SDK are used directly and the Swift bridge in `networkframework`'s `build.rs`
+links cleanly — `cargo build`/`test` and `scripts/remote-test.sh` all just work there. It also
+provides the Rust toolchain with the iOS target and `jq`.
 
-**`cargo build`/`cargo test` compile but fail at the final link** unless the Xcode Swift-runtime
-env is set — the Swift bridge in `networkframework`'s `build.rs` needs it, and only the flake
-(`scripts/build-mac.sh`) supplies it automatically. For a plain `cargo` run, export it first:
-
-```bash
-export DEVELOPER_DIR="$(xcode-select -p)"
-export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
-export MACOSX_DEPLOYMENT_TARGET=26.0
-export RUSTFLAGS="-C linker=/usr/bin/clang -C link-arg=-isysroot -C link-arg=$SDKROOT \
-  -C link-arg=-L$SDKROOT/usr/lib/swift \
-  -C link-arg=-L$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx"
-```
-
-`cargo check` / `cargo clippy` don't link, so they work without any of this.
+Outside the shell, a Nix cc wrapper shadows Xcode's clang and targets the Nix SDK, so the final
+link fails (missing Swift runtime / wrong min-OS). `cargo check` / `cargo clippy` don't link, so
+they work anywhere.
 
 ## Testing model — important
 
